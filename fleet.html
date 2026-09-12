@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Minentle Fleet Telematics & Staff Transport System</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Leaflet Map CSS/JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #0f172a;
+      color: #f8fafc;
+    }
+    .glass-panel {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 4px;
+    }
+    .phone-screen {
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+      border: 12px solid #1e293b;
+      border-radius: 40px;
+    }
+    /* Pulse effect for dynamic map markers */
+    .pulse-marker {
+      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+      animation: pulse 1.8s infinite;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+      70% { box-shadow: 0 0 0 12px rgba(59, 130, 246, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Top Navigation Header -->
+  <header class="glass-panel border-b border-slate-800 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-blue-600 to-emerald-400 flex items-center justify-center font-extrabold text-xl text-white shadow-lg shadow-blue-500/20">
+          MV
+        </div>
+        <div>
+          <h1 class="font-bold text-lg tracking-wide text-white flex items-center gap-2">
+            MINENTLE <span class="text-xs bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full uppercase font-mono tracking-wider">Telematics Engine v2.4</span>
+          </h1>
+          <p class="text-xs text-slate-400">Enterprise Fleet & Pick-Up Transport System</p>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="flex items-center gap-2 bg-slate-900/80 p-1.5 rounded-xl border border-slate-800">
+        <button onclick="switchView('web')" id="tab-web" class="px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 bg-blue-600 text-white shadow-md">
+          <i class="fa-solid fa-desktop mr-2"></i>Web Control Center
+        </button>
+        <button onclick="switchView('mobile')" id="tab-mobile" class="px-4 py-2 rounded-lg text-sm font-semibold text-slate-400 hover:text-white transition-all duration-200">
+          <i class="fa-solid fa-mobile-screen mr-2"></i>Driver Mobile App
+        </button>
+      </div>
+
+      <div class="flex items-center gap-4">
+        <div class="hidden md:flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-lg">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+          MQTT Broker Online (Broker: 10.0.4.12)
+        </div>
+        <div class="h-8 w-px bg-slate-800 hidden md:block"></div>
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 font-bold border border-slate-600">
+            MM
+          </div>
+          <div class="hidden sm:block text-left">
+            <div class="text-xs font-semibold text-slate-200">Minentle Mvunyiswa</div>
+            <div class="text-[10px] text-slate-400">System Architect</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col gap-6">
+
+    <!-- ========================================== -->
+    <!-- VIEW 1: WEB DASHBOARD (FLEET MANAGER VIEW) -->
+    <!-- ========================================== -->
+    <div id="view-web" class="flex flex-col gap-6">
+
+      <!-- Key Metrics Row -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="glass-panel p-4 rounded-2xl flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Vehicles</p>
+            <h3 class="text-2xl font-black text-white mt-1">18 / 20</h3>
+            <p class="text-xs text-emerald-400 mt-1"><i class="fa-solid fa-arrow-trend-up"></i> 90% Operation Rate</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 text-xl">
+            <i class="fa-solid fa-van-shuttle"></i>
+          </div>
+        </div>
+
+        <div class="glass-panel p-4 rounded-2xl flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Pending Pickups</p>
+            <h3 class="text-2xl font-black text-white mt-1">42 Staff</h3>
+            <p class="text-xs text-blue-400 mt-1"><i class="fa-solid fa-clock"></i> Next Shift: 19:00 PM</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 text-xl">
+            <i class="fa-solid fa-user-clock"></i>
+          </div>
+        </div>
+
+        <div class="glass-panel p-4 rounded-2xl flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Idle / Wait Alerts</p>
+            <h3 class="text-2xl font-black text-amber-400 mt-1">2 Vehicles</h3>
+            <p class="text-xs text-rose-400 mt-1"><i class="fa-solid fa-triangle-exclamation"></i> Exceeded 5 Min Limit</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 text-xl">
+            <i class="fa-solid fa-hourglass-alert"></i>
+          </div>
+        </div>
+
+        <div class="glass-panel p-4 rounded-2xl flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Network Latency</p>
+            <h3 class="text-2xl font-black text-emerald-400 mt-1">14 ms</h3>
+            <p class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-bolt text-yellow-400"></i> WebSocket Real-Time</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 text-xl">
+            <i class="fa-solid fa-signal"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Interactive Section: Map + Live Vehicle Panel -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Map Column (Takes up 2/3 space) -->
+        <div class="lg:col-span-2 glass-panel rounded-2xl p-4 flex flex-col gap-4 relative">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <h2 class="font-bold text-slate-100 flex items-center gap-2">
+                <i class="fa-solid fa-earth-africa text-blue-400"></i> Live GPS Telematics Map
+              </h2>
+              <span class="text-xs bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full border border-slate-700">
+                Live MQTT Feed
+              </span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button class="px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700">
+                <i class="fa-solid fa-filter mr-1"></i> Filter Active
+              </button>
+            </div>
+          </div>
+
+          <!-- Leaflet Map Container -->
+          <div id="map" class="w-full h-[520px] rounded-xl z-10 border border-slate-700/60 overflow-hidden"></div>
+
+          <!-- Map Legend Bar -->
+          <div class="absolute bottom-6 left-6 z-20 glass-panel px-4 py-2 rounded-xl text-xs flex items-center gap-4 text-slate-300">
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-emerald-500"></span> Moving
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-amber-500"></span> Waiting Staff (>5m Alert)
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-blue-500"></span> Engine Off / Shift Break
+            </div>
+          </div>
+        </div>
+
+        <!-- Vehicle Details Panel (Takes up 1/3 space) -->
+        <div class="glass-panel rounded-2xl p-5 flex flex-col gap-5 custom-scrollbar overflow-y-auto max-h-[580px]" id="details-sidebar">
+          
+          <div class="border-b border-slate-800 pb-3 flex items-center justify-between">
+            <div>
+              <span class="text-xs text-blue-400 font-bold uppercase tracking-wider">Selected Fleet Unit</span>
+              <h3 class="text-xl font-extrabold text-white" id="detail-reg">CA 842-109</h3>
+            </div>
+            <span id="detail-status" class="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> Waiting Staff (6m 12s)
+            </span>
+          </div>
+
+          <!-- Driver Info Card -->
+          <div class="bg-slate-900/90 p-3.5 rounded-xl border border-slate-800 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <img id="driver-img" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80" class="w-12 h-12 rounded-full object-cover border-2 border-blue-500" alt="Driver">
+              <div>
+                <p class="text-[10px] text-slate-400 font-semibold uppercase">Assigned Driver</p>
+                <h4 class="font-bold text-white text-sm" id="detail-driver">Siyabonga Ndlala</h4>
+                <p class="text-xs text-slate-400" id="detail-model">Toyota Quantum 2.5 D-4D (14 Seater)</p>
+              </div>
+            </div>
+            <a href="tel:+27820000000" class="w-9 h-9 rounded-lg bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white flex items-center justify-center transition-colors">
+              <i class="fa-solid fa-phone"></i>
+            </a>
+          </div>
+
+          <!-- Shift & Rosters Tabs -->
+          <div>
+            <label class="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Shift Pick-Up Rosters</label>
+            <div class="grid grid-cols-2 gap-2 mb-3">
+              <button onclick="selectShift('7pm')" id="btn-shift-7pm" class="py-2 px-3 rounded-lg text-xs font-bold bg-blue-600 text-white flex items-center justify-center gap-2 transition">
+                <i class="fa-solid fa-moon"></i> 19:00 PM Shift
+              </button>
+              <button onclick="selectShift('9pm')" id="btn-shift-9pm" class="py-2 px-3 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center gap-2 transition">
+                <i class="fa-solid fa-clock font-normal"></i> 21:00 PM Shift
+              </button>
+            </div>
+          </div>
+
+          <!-- Roster Staff List -->
+          <div class="flex flex-col gap-2.5" id="staff-list">
+            <!-- Dynamic Insertion via JS -->
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- VIEW 2: MOBILE DRIVER APP VIEW & TRIP REPLAY -->
+    <!-- ========================================== -->
+    <div id="view-mobile" class="hidden flex-col items-center justify-center py-4">
+      
+      <div class="w-full max-w-sm">
+        <div class="text-center mb-4">
+          <h2 class="text-xl font-bold text-white">Driver On-Board Terminal</h2>
+          <p class="text-xs text-slate-400">Minentle Telematics Mobile Companion App</p>
+        </div>
+
+        <!-- Phone Shell -->
+        <div class="phone-screen bg-slate-950 w-full rounded-[40px] overflow-hidden flex flex-col h-[740px] relative border-4 border-slate-800">
+          
+          <!-- Mobile Status Bar -->
+          <div class="bg-slate-900 px-6 py-2 flex items-center justify-between text-[11px] text-slate-400 font-semibold border-b border-slate-800">
+            <span>07:14 PM</span>
+            <div class="w-16 h-3 bg-black rounded-full mx-auto my-1"></div>
+            <div class="flex items-center gap-1.5">
+              <i class="fa-solid fa-wifi"></i>
+              <i class="fa-solid fa-battery-three-quarters text-emerald-400"></i>
+            </div>
+          </div>
+
+          <!-- App Top Header -->
+          <div class="bg-slate-900 p-4 border-b border-slate-800 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 font-bold">
+                SN
+              </div>
+              <div>
+                <h4 class="font-bold text-xs text-white">Siyabonga Ndlala</h4>
+                <p class="text-[10px] text-emerald-400 font-medium">● Connected (Reg: CA 842-109)</p>
+              </div>
+            </div>
+            <button class="bg-slate-800 text-xs px-2.5 py-1.5 rounded-lg text-slate-300">
+              <i class="fa-solid fa-bell"></i>
+            </button>
+          </div>
+
+          <!-- App Content Body (Scrollable) -->
+          <div class="flex-1 overflow-y-auto custom-scrollbar p-4 flex flex-col gap-4 bg-slate-950">
+            
+            <!-- Real-time Shift Alert Banner -->
+            <div class="bg-gradient-to-r from-blue-900/60 to-slate-900 p-3.5 rounded-2xl border border-blue-500/30">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-[10px] uppercase font-bold text-blue-400 tracking-wider">Current Active Trip</span>
+                <span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-bold">19:00 PM Shift</span>
+              </div>
+              <p class="text-xs font-bold text-white">Call Center Drop-off Route A</p>
+              <p class="text-[11px] text-slate-400 mt-1"><i class="fa-solid fa-location-dot text-rose-400 mr-1"></i> Pick-up Point: Century City HQ</p>
+            </div>
+
+            <!-- 5-Minute Waiting Timer Feature -->
+            <div class="bg-slate-900 p-4 rounded-2xl border border-amber-500/30 flex flex-col gap-2">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-300">Passenger Pickup Timer</span>
+                <span class="text-[10px] text-amber-400 font-mono bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">AUTO EXPIRE: 5 MIN</span>
+              </div>
+              <div class="flex items-center justify-between my-1">
+                <div>
+                  <h5 class="font-bold text-sm text-white">Lindiwe Khumalo</h5>
+                  <p class="text-[11px] text-slate-400">124 Main Rd, Sea Point</p>
+                </div>
+                <div class="text-right">
+                  <div class="text-xl font-extrabold font-mono text-amber-400" id="timer-display">04:12</div>
+                  <p class="text-[9px] text-slate-400">Waiting at Location</p>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-2 mt-2">
+                <button onclick="confirmPickup()" class="py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-500 transition">
+                  <i class="fa-solid fa-user-check mr-1"></i> Boarded
+                </button>
+                <button onclick="triggerNoShowAlert()" class="py-2 bg-rose-600/20 text-rose-400 border border-rose-500/30 rounded-xl text-xs font-bold hover:bg-rose-600 hover:text-white transition">
+                  <i class="fa-solid fa-user-xmark mr-1"></i> No-Show Alert
+                </button>
+              </div>
+            </div>
+
+            <!-- TRIP REPLAY SECTION (Interactive Module) -->
+            <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800 flex flex-col gap-3">
+              <div class="flex items-center justify-between">
+                <h4 class="text-xs font-bold text-white flex items-center gap-1.5">
+                  <i class="fa-solid fa-rotate-left text-blue-400"></i> Route Historical Replay
+                </h4>
+                <span class="text-[10px] text-slate-400">Yesterday's Shift</span>
+              </div>
+
+              <!-- Mini Replay Visualizer Box -->
+              <div class="h-32 bg-slate-950 rounded-xl border border-slate-800 p-2 flex flex-col justify-between relative overflow-hidden">
+                <div class="flex items-center justify-between text-[10px] text-slate-400 z-10">
+                  <span>Start: Century City (21:05)</span>
+                  <span>End: Khayelitsha (22:15)</span>
+                </div>
+                
+                <!-- Mock Route Line Visualizer -->
+                <div class="w-full h-1 bg-slate-800 rounded-full relative my-auto">
+                  <div id="replay-progress" class="h-full bg-blue-500 rounded-full w-1/3 transition-all duration-300"></div>
+                  <div id="replay-head" class="w-3.5 h-3.5 bg-blue-400 border-2 border-white rounded-full absolute -top-1.2 left-1/3 shadow-lg transform -translate-x-1/2 transition-all duration-300"></div>
+                </div>
+
+                <div class="flex items-center justify-between z-10">
+                  <span class="text-[10px] text-emerald-400 font-semibold"><i class="fa-solid fa-shield-check"></i> Speed: 62 km/h (Normal)</span>
+                  <span class="text-[10px] text-slate-400">32.4 km total</span>
+                </div>
+              </div>
+
+              <!-- Replay Playback Controls -->
+              <div class="flex items-center justify-center gap-4 pt-1">
+                <button onclick="stepReplay(-10)" class="text-slate-400 hover:text-white text-sm"><i class="fa-solid fa-backward-step"></i></button>
+                <button onclick="toggleReplay()" id="btn-replay-play" class="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold shadow-lg shadow-blue-500/30">
+                  <i class="fa-solid fa-play"></i>
+                </button>
+                <button onclick="stepReplay(10)" class="text-slate-400 hover:text-white text-sm"><i class="fa-solid fa-forward-step"></i></button>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Phone Bottom Navigation Bar -->
+          <div class="bg-slate-900 border-t border-slate-800 p-3 grid grid-cols-3 text-center text-[10px]">
+            <button class="text-blue-400 font-bold flex flex-col items-center gap-1">
+              <i class="fa-solid fa-route text-base"></i> My Route
+            </button>
+            <button class="text-slate-400 hover:text-white flex flex-col items-center gap-1">
+              <i class="fa-solid fa-clock-rotate-left text-base"></i> Replay Logs
+            </button>
+            <button class="text-slate-400 hover:text-white flex flex-col items-center gap-1">
+              <i class="fa-solid fa-user-gear text-base"></i> Profile
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- JavaScript logic & Leaflet Map setup -->
+  <script>
+    // Data Structure for Vehicles, Shifts, & Pickups
+    const fleetData = [
+      {
+        id: "v1",
+        reg: "CA 842-109",
+        model: "Toyota Quantum 2.5 D-4D",
+        driver: "Siyabonga Ndlala",
+        driverImg: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80",
+        lat: -33.9249,
+        lng: 18.4241,
+        status: "waiting",
+        statusText: "Waiting Staff (6m 12s)",
+        statusClass: "bg-amber-500/20 text-amber-400 border-amber-500/30",
+        shifts: {
+          "7pm": [
+            { name: "Lindiwe Khumalo", address: "124 Main Rd, Sea Point", status: "Waiting", statusBg: "bg-amber-500/20 text-amber-400", time: "19:05" },
+            { name: "Thabo Mbeki", address: "45 Regent Rd, Camps Bay", status: "Pending", statusBg: "bg-slate-800 text-slate-400", time: "19:20" },
+            { name: "Sipho Dlamini", address: "12 Victoria Rd, Bakoven", status: "Pending", statusBg: "bg-slate-800 text-slate-400", time: "19:40" }
+          ],
+          "9pm": [
+            { name: "Zanele Ndlovu", address: "88 Kloof St, Gardens", status: "Pending", statusBg: "bg-slate-800 text-slate-400", time: "21:10" },
+            { name: "Bongani Sithole", address: "14 Long St, City Centre", status: "Pending", statusBg: "bg-slate-800 text-slate-400", time: "21:30" }
+          ]
+        }
+      },
+      {
+        id: "v2",
+        reg: "CY 192-884",
+        model: "Mercedes-Benz Sprinter 516",
+        driver: "Minenhle Cele",
+        driverImg: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80",
+        lat: -33.8933,
+        lng: 18.5100,
+        status: "moving",
+        statusText: "In Transit (58 km/h)",
+        statusClass: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+        shifts: {
+          "7pm": [
+            { name: "Ayanda Zuma", address: "77 Durbanville Ave, Bellville", status: "Picked Up", statusBg: "bg-emerald-500/20 text-emerald-400", time: "19:02" },
+            { name: "Kagiso Rabada", address: "12 Voortrekker Rd, Parow", status: "In Transit", statusBg: "bg-blue-500/20 text-blue-400", time: "19:25" }
+          ],
+          "9pm": [
+            { name: "Nkosana Dlamini", address: "55 Old Paarl Rd, Brackenfell", status: "Pending", statusBg: "bg-slate-800 text-slate-400", time: "21:15" }
+          ]
+        }
+      }
+    ];
+
+    let activeVehicle = fleetData[0];
+    let activeShift = "7pm";
+    let map;
+
+    // Initialize Map
+    function initMap() {
+      map = L.map('map').setView([-33.9249, 18.4241], 12);
+
+      // Dark Theme Tiles for Professional Tech Look
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap &copy; CARTO',
+        subdomains: 'abcd',
+        maxZoom: 19
+      }).addTo(map);
+
+      // Render Vehicle Markers
+      fleetData.forEach(vehicle => {
+        const color = vehicle.status === 'waiting' ? '#f59e0b' : '#10b981';
+        const markerHtml = `
+          <div class="pulse-marker" style="background-color: ${color}; width: 18px; height: 18px; border-radius: 50%; border: 3px solid white; cursor: pointer;"></div>
+        `;
+
+        const customIcon = L.divIcon({
+          html: markerHtml,
+          className: 'custom-map-pin',
+          iconSize: [18, 18]
+        });
+
+        const marker = L.marker([vehicle.lat, vehicle.lng], { icon: customIcon }).addTo(map);
+
+        marker.on('click', () => {
+          selectVehicle(vehicle);
+        });
+
+        marker.bindTooltip(`<b>${vehicle.reg}</b><br>${vehicle.driver}`, { permanent: false, direction: 'top' });
+      });
+    }
+
+    // Select Vehicle Handler
+    function selectVehicle(vehicle) {
+      activeVehicle = vehicle;
+      document.getElementById('detail-reg').innerText = vehicle.reg;
+      document.getElementById('detail-driver').innerText = vehicle.driver;
+      document.getElementById('detail-model').innerText = vehicle.model;
+      document.getElementById('driver-img').src = vehicle.driverImg;
+      
+      const statusEl = document.getElementById('detail-status');
+      statusEl.className = `px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${vehicle.statusClass}`;
+      statusEl.innerHTML = `<span class="w-2 h-2 rounded-full ${vehicle.status === 'waiting' ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}"></span> ${vehicle.statusText}`;
+
+      renderStaffList();
+    }
+
+    // Switch Shifts (7pm vs 9pm)
+    function selectShift(shift) {
+      activeShift = shift;
+      const btn7 = document.getElementById('btn-shift-7pm');
+      const btn9 = document.getElementById('btn-shift-9pm');
+
+      if (shift === '7pm') {
+        btn7.className = "py-2 px-3 rounded-lg text-xs font-bold bg-blue-600 text-white flex items-center justify-center gap-2 transition shadow-md";
+        btn9.className = "py-2 px-3 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center gap-2 transition";
+      } else {
+        btn9.className = "py-2 px-3 rounded-lg text-xs font-bold bg-blue-600 text-white flex items-center justify-center gap-2 transition shadow-md";
+        btn7.className = "py-2 px-3 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center gap-2 transition";
+      }
+
+      renderStaffList();
+    }
+
+    // Render Staff Members for Selected Vehicle & Shift
+    function renderStaffList() {
+      const container = document.getElementById('staff-list');
+      container.innerHTML = "";
+
+      const staffMembers = activeVehicle.shifts[activeShift] || [];
+
+      if(staffMembers.length === 0) {
+        container.innerHTML = `<p class="text-xs text-slate-500 py-4 text-center">No staff scheduled for this shift slot.</p>`;
+        return;
+      }
+
+      staffMembers.forEach((staff) => {
+        const card = document.createElement('div');
+        card.className = "bg-slate-900/60 hover:bg-slate-800/80 p-3 rounded-xl border border-slate-800/80 transition flex items-center justify-between";
+        card.innerHTML = `
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-bold text-slate-300">
+              ${staff.name.split(' ').map(n => n[0]).join('')}
+            </div>
+            <div>
+              <h5 class="text-xs font-bold text-white">${staff.name}</h5>
+              <p class="text-[11px] text-slate-400 flex items-center gap-1">
+                <i class="fa-solid fa-location-dot text-rose-500/80"></i> ${staff.address}
+              </p>
+            </div>
+          </div>
+          <div class="text-right">
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${staff.statusBg}">${staff.status}</span>
+            <p class="text-[10px] text-slate-500 mt-1"><i class="fa-solid fa-clock"></i> ${staff.time}</p>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    // Switch Between Web & Mobile Prototype Views
+    function switchView(view) {
+      const webView = document.getElementById('view-web');
+      const mobileView = document.getElementById('view-mobile');
+      const tabWeb = document.getElementById('tab-web');
+      const tabMobile = document.getElementById('tab-mobile');
+
+      if (view === 'web') {
+        webView.classList.remove('hidden');
+        mobileView.classList.add('hidden');
+        tabWeb.className = "px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 bg-blue-600 text-white shadow-md";
+        tabMobile.className = "px-4 py-2 rounded-lg text-sm font-semibold text-slate-400 hover:text-white transition-all duration-200";
+        setTimeout(() => map.invalidateSize(), 200);
+      } else {
+        webView.classList.add('hidden');
+        mobileView.classList.remove('hidden');
+        mobileView.classList.add('flex');
+        tabMobile.className = "px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 bg-blue-600 text-white shadow-md";
+        tabWeb.className = "px-4 py-2 rounded-lg text-sm font-semibold text-slate-400 hover:text-white transition-all duration-200";
+      }
+    }
+
+    // Mobile App Timer Countdown Logic
+    let seconds = 252; // 4 mins 12 secs
+    setInterval(() => {
+      if(seconds > 0) {
+        seconds--;
+        const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+        const s = String(seconds % 60).padStart(2, '0');
+        document.getElementById('timer-display').innerText = `${m}:${s}`;
+      }
+    }, 1000);
+
+    // Trip Replay Simulator Controls
+    let replayProgress = 33;
+    let isPlaying = false;
+    let replayInterval;
+
+    function toggleReplay() {
+      const btn = document.getElementById('btn-replay-play');
+      if(isPlaying) {
+        clearInterval(replayInterval);
+        btn.innerHTML = `<i class="fa-solid fa-play"></i>`;
+        isPlaying = false;
+      } else {
+        btn.innerHTML = `<i class="fa-solid fa-pause"></i>`;
+        isPlaying = true;
+        replayInterval = setInterval(() => {
+          if(replayProgress < 100) {
+            stepReplay(2);
+          } else {
+            toggleReplay();
+            replayProgress = 0;
+            stepReplay(0);
+          }
+        }, 300);
+      }
+    }
+
+    function stepReplay(val) {
+      replayProgress = Math.max(0, Math.min(100, replayProgress + val));
+      document.getElementById('replay-progress').style.width = `${replayProgress}%`;
+      document.getElementById('replay-head').style.left = `${replayProgress}%`;
+    }
+
+    function confirmPickup() {
+      alert("Pickup Confirmed! Telematics server updated via MQTT.");
+    }
+
+    function triggerNoShowAlert() {
+      alert("5-Minute Threshold Exceeded! No-Show Notification dispatched to Transport Desk.");
+    }
+
+    // Initialize application on load
+    window.onload = () => {
+      initMap();
+      renderStaffList();
+    };
+  </script>
+</body>
+</html>
